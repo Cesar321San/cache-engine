@@ -1,0 +1,14 @@
+{
+  "max_entries": 1000,
+  "cleanup_interval_seconds": 1,
+  "default_mode": "cli",
+  "http": {
+    "port": 8080,
+    "enable_cors": false
+  },
+  "persistence": {
+    "enabled": false,
+    "log_file": "cache.log",
+    "snapshot_interval_minutes": 5
+  }
+}
