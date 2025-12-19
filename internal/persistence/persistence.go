@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 )
 
 // LogEntry representa una operación en el log
@@ -19,6 +20,34 @@ type LogEntry struct {
 const (
 	DefaultLogFile = "cache.log"
 )
+
+// LogOperation registra una operación individual en el log (append-only)
+func LogOperation(filename, operation, key string, value interface{}, expiresAt int64) error {
+	if filename == "" {
+		return nil // Logging deshabilitado
+	}
+
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("error al abrir archivo de log: %v", err)
+	}
+	defer file.Close()
+
+	logEntry := LogEntry{
+		Operation: operation,
+		Key:       key,
+		Value:     value,
+		ExpiresAt: expiresAt,
+		Timestamp: time.Now().Unix(),
+	}
+
+	encoder := json.NewEncoder(file)
+	if err := encoder.Encode(logEntry); err != nil {
+		return fmt.Errorf("error al escribir en log: %v", err)
+	}
+
+	return nil
+}
 
 // SaveToLog guarda el estado actual del cache en formato JSON append-only
 func SaveToLog(c *cache.CacheEngine, filename string) error {

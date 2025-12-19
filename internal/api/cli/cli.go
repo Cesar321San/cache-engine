@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Run ejecuta la interfaz de línea de comandos
@@ -20,10 +21,10 @@ func Run(cacheEngine *cache.CacheEngine) {
 	fmt.Println("  GET <key>            - Obtener valor")
 	fmt.Println("  DEL <key>            - Eliminar clave")
 	fmt.Println("  EXPIRE <key> <secs>  - Establecer expiración")
-	fmt.Println("  SAVE [archivo]       - Guardar a log")
+	fmt.Println("  ENABLELOG [archivo]  - Habilitar logging automático")
+	fmt.Println("  DISABLELOG           - Deshabilitar logging automático")
+	fmt.Println("  SAVE [archivo]       - Guardar estado actual a log")
 	fmt.Println("  LOAD [archivo]       - Cargar desde log")
-	fmt.Println("  SNAPSHOT [archivo]   - Guardar snapshot")
-	fmt.Println("  LOADSNAPSHOT [archivo] - Cargar snapshot")
 	fmt.Println("  STATS                - Mostrar estadísticas")
 	fmt.Println("  EXIT                 - Salir")
 	fmt.Println()
@@ -56,6 +57,12 @@ func Run(cacheEngine *cache.CacheEngine) {
 			key := parts[1]
 			value := strings.Join(parts[2:], " ")
 			cacheEngine.Set(key, value)
+
+			// Log automático si está habilitado
+			if logFile := getLogFile(cacheEngine); logFile != "" {
+				persistence.LogOperation(logFile, "SET", key, value, 0)
+			}
+
 			fmt.Println("OK")
 
 		case "GET":
@@ -79,6 +86,10 @@ func Run(cacheEngine *cache.CacheEngine) {
 			key := parts[1]
 			deleted := cacheEngine.Delete(key)
 			if deleted {
+				// Log automático si está habilitado
+				if logFile := getLogFile(cacheEngine); logFile != "" {
+					persistence.LogOperation(logFile, "DEL", key, nil, 0)
+				}
 				fmt.Println("OK")
 			} else {
 				fmt.Println("Clave no encontrada")
@@ -97,10 +108,26 @@ func Run(cacheEngine *cache.CacheEngine) {
 			}
 			success := cacheEngine.Expire(key, seconds)
 			if success {
+				// Log automático si está habilitado
+				if logFile := getLogFile(cacheEngine); logFile != "" {
+					persistence.LogOperation(logFile, "EXPIRE", key, nil, time.Now().Unix()+int64(seconds))
+				}
 				fmt.Println("OK")
 			} else {
 				fmt.Println("Clave no encontrada")
 			}
+
+		case "ENABLELOG":
+			filename := persistence.DefaultLogFile
+			if len(parts) > 1 {
+				filename = parts[1]
+			}
+			cacheEngine.EnableLogging(filename)
+			fmt.Printf("Logging automático habilitado en: %s\n", filename)
+
+		case "DISABLELOG":
+			cacheEngine.DisableLogging()
+			fmt.Println("Logging automático deshabilitado")
 
 		case "SAVE":
 			filename := persistence.DefaultLogFile
@@ -124,28 +151,6 @@ func Run(cacheEngine *cache.CacheEngine) {
 				fmt.Printf("Cargado desde %s\n", filename)
 			}
 
-		case "SNAPSHOT":
-			filename := "cache_snapshot.json"
-			if len(parts) > 1 {
-				filename = parts[1]
-			}
-			if err := persistence.Snapshot(cacheEngine, filename); err != nil {
-				fmt.Printf("Error: %v\n", err)
-			} else {
-				fmt.Printf("Snapshot guardado en %s\n", filename)
-			}
-
-		case "LOADSNAPSHOT":
-			filename := "cache_snapshot.json"
-			if len(parts) > 1 {
-				filename = parts[1]
-			}
-			if err := persistence.LoadSnapshot(cacheEngine, filename); err != nil {
-				fmt.Printf("Error: %v\n", err)
-			} else {
-				fmt.Printf("Snapshot cargado desde %s\n", filename)
-			}
-
 		case "STATS":
 			fmt.Printf("Entradas en cache: %d\n", cacheEngine.Size())
 			fmt.Printf("Límite máximo: %d\n", cacheEngine.MaxEntries())
@@ -159,4 +164,9 @@ func Run(cacheEngine *cache.CacheEngine) {
 			fmt.Println("Comando desconocido. Escribe EXIT para salir.")
 		}
 	}
+}
+
+// getLogFile obtiene el archivo de log actual del cache de forma segura
+func getLogFile(c *cache.CacheEngine) string {
+	return c.GetLogFile()
 }

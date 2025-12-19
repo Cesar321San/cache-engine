@@ -18,6 +18,7 @@ type CacheEngine struct {
 	mu         sync.RWMutex           // Mutex para concurrencia segura
 	maxEntries int                    // Límite máximo de entradas (para LRU)
 	stopClean  chan bool              // Canal para detener el barrido periódico
+	logFile    string                 // Archivo de log para persistencia (opcional)
 }
 
 // NewCacheEngine crea una nueva instancia del motor de cache
@@ -41,7 +42,6 @@ func NewCacheEngine(maxEntries int) *CacheEngine {
 // Set almacena un valor en el cache
 func (c *CacheEngine) Set(key string, value interface{}) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	// Si alcanzamos el límite, ejecutar eviction (LRU)
 	if len(c.data) >= c.maxEntries {
@@ -53,6 +53,15 @@ func (c *CacheEngine) Set(key string, value interface{}) {
 		Value:      value,
 		ExpiresAt:  0, // Sin expiración por defecto
 		LastAccess: now,
+	}
+
+	// Registrar operación en log si está habilitado
+	logFile := c.logFile
+	c.mu.Unlock()
+
+	if logFile != "" {
+		// Importar persistence causaría dependencia circular, así que el logging
+		// se maneja desde el CLI
 	}
 }
 
@@ -81,27 +90,44 @@ func (c *CacheEngine) Get(key string) (interface{}, bool) {
 // Delete elimina una clave del cache
 func (c *CacheEngine) Delete(key string) bool {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	_, exists := c.data[key]
 	if exists {
 		delete(c.data, key)
-		return true
 	}
-	return false
+
+	// Registrar operación en log si está habilitado
+	logFile := c.logFile
+	c.mu.Unlock()
+
+	if exists && logFile != "" {
+		// El logging se maneja desde el CLI
+	}
+
+	return exists
 }
 
 // Expire establece un tiempo de expiración para una clave
 func (c *CacheEngine) Expire(key string, seconds int) bool {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	entry, exists := c.data[key]
 	if !exists {
+		c.mu.Unlock()
 		return false
 	}
 
-	entry.ExpiresAt = time.Now().Unix() + int64(seconds)
+	expiresAt := time.Now().Unix() + int64(seconds)
+	entry.ExpiresAt = expiresAt
+
+	// Registrar operación en log si está habilitado
+	logFile := c.logFile
+	c.mu.Unlock()
+
+	if logFile != "" {
+		// El logging se maneja desde el CLI
+	}
+
 	return true
 }
 
@@ -126,7 +152,7 @@ func (c *CacheEngine) evictLRU() {
 
 // periodicCleanup ejecuta un barrido periódico para eliminar claves expiradas
 func (c *CacheEngine) periodicCleanup() {
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -167,6 +193,27 @@ func (c *CacheEngine) MaxEntries() int {
 // Close detiene los procesos en segundo plano
 func (c *CacheEngine) Close() {
 	close(c.stopClean)
+}
+
+// EnableLogging habilita el logging de operaciones en tiempo real
+func (c *CacheEngine) EnableLogging(filename string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.logFile = filename
+}
+
+// DisableLogging deshabilita el logging de operaciones
+func (c *CacheEngine) DisableLogging() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.logFile = ""
+}
+
+// GetLogFile retorna el archivo de log actual
+func (c *CacheEngine) GetLogFile() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.logFile
 }
 
 // ExportData retorna una copia segura de los datos para persistencia
