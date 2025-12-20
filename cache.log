@@ -1,0 +1,10 @@
+{"operation":"SET","key":"USER1","value":"Cesar","timestamp":1766207621}
+{"operation":"SET","key":"user2","value":"artur","timestamp":1766207652}
+{"operation":"SET","key":"user3","value":"rihcard","timestamp":1766207687}
+{"operation":"SET","key":"user3","value":"richard","timestamp":1766207698}
+{"operation":"SET","key":"user1","value":"cesar","timestamp":1766207784}
+{"operation":"SET","key":"user1","value":"cesar","timestamp":1766208397}
+{"operation":"SET","key":"user1","value":"cesar","timestamp":1766208408}
+{"operation":"DEL","key":"user1","timestamp":1766208745}
+{"operation":"SET","key":"user1","value":"jose","timestamp":1766208757}
+{"operation":"SET","key":"user2","value":"artur","timestamp":1766234802}
