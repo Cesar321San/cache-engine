@@ -13,10 +13,10 @@ Auto-limpieza: Barrido periódico de claves expiradas
 
 cd cache-engine
 go mod tidy
+go build -o bin\cache-engine.exe .\cmd\cache-engine\
 
 
 # Modo CLI (Interactivo)
-
 
 go run ./cmd/cache-engine
 
@@ -50,5 +50,10 @@ cache> STATS
 Entradas en cache: 1
 Límite máximo: 1000
 
+# Comanfos para benchmark y test:
 
+go test -bench=BenchmarkSet ./internal/cache/
+go test -bench=BenchmarkGet ./internal/cache/
 
+go test -v -run TestSetAndGet ./internal/cache/
+go test -v -run TestConcurrency ./internal/cache/
